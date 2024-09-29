@@ -1,48 +1,97 @@
-import tkinter as tk
-from tkinter.scrolledtext import ScrolledText
+import sys
+import ctypes
+from ctypes import wintypes
 import subprocess
 import threading
-import sys
+from PyQt5.QtWidgets import QApplication, QWidget, QPushButton, QVBoxLayout, QTextEdit, QMainWindow, QHBoxLayout, QLabel
+from PyQt5.QtCore import Qt, QPoint
+from PyQt5.QtGui import QMouseEvent
+
+
+# Подключение библиотеки dwmapi для работы с атрибутами окна
+dwmapi = ctypes.WinDLL("dwmapi")
+DWMWA_USE_IMMERSIVE_DARK_MODE = 20
 
 
 class ConsoleOutput:
-    """Класс для перенаправления вывода в текстовый виджет."""
-    def __init__(self, text_widget):
-        self.text_widget = text_widget
+    """Класс для перенаправления вывода в текстовый виджет QTextEdit."""
+    def __init__(self, text_edit):
+        self.text_edit = text_edit
 
     def write(self, message):
-        # Добавляем текст в конец виджета
-        self.text_widget.insert(tk.END, message)
-        self.text_widget.see(tk.END)  # Автоматическая прокрутка
+        self.text_edit.insertPlainText(message)
+        self.text_edit.ensureCursorVisible()  # Автоматическая прокрутка
 
     def flush(self):
-        pass  # Необходимо для совместимости с sys.stdout
+        pass  # Для совместимости с sys.stdout
 
 
-class ProxyApp:
-    def __init__(self, root):
-        self.root = root
-        self.root.title("Proxy Switcher")
+class ProxyApp(QMainWindow):
+    def __init__(self):
+        super().__init__()
+
+        self.setWindowTitle("Proxy Switcher")
+        self.setGeometry(200, 200, 800, 400)
+
+        # Применение темного режима для окна через WinAPI
+        self.set_dark_mode()
+
+        # Переменные для перемещения окна
+        self.old_position = QPoint()
 
         # Текущее состояние прокси
         self.proxy_enabled = False
         self.xray_process = None  # Для хранения процесса Xray
 
+        # Основной виджет и компоновка
+        central_widget = QWidget(self)
+        central_widget.setObjectName("central_widget")
+        self.setCentralWidget(central_widget)
+        layout = QVBoxLayout(central_widget)
+
+        # Устанавливаем цвет для основного окна через стилизацию
+        central_widget.setStyleSheet("background-color: #202942;")  # Серый цвет
+
         # Кнопка для включения/выключения прокси
-        self.button = tk.Button(root, text="Включить прокси", command=self.toggle_proxy, width=25, height=3)
-        self.button.pack(pady=20)
+        self.button = QPushButton("Включить прокси", self)
+        self.button.setFixedSize(150, 30)
+        self.button.setStyleSheet("color: white; background-color: #30384f;")
+        self.button.clicked.connect(self.toggle_proxy)
+        layout.addWidget(self.button)
 
         # Поле для вывода текста консоли (с чёрным фоном и зелёным текстом)
-        self.console_output = ScrolledText(root, wrap=tk.WORD, width=100, height=20, bg="black", fg="green")
-        self.console_output.pack(pady=10)
+        self.console_output = QTextEdit(self)
+        self.console_output.setReadOnly(True)
+        self.console_output.setStyleSheet(" color: green; background-color: black; border: none;")
+        layout.addWidget(self.console_output)
 
         # Перенаправление стандартного вывода в текстовый виджет
         sys.stdout = ConsoleOutput(self.console_output)
         sys.stderr = ConsoleOutput(self.console_output)
 
-        # Обработчик закрытия окна
-        self.root.protocol("WM_DELETE_WINDOW", self.on_closing)
+    def set_dark_mode(self):
+        """Включение темного режима для окна через WinAPI"""
+        hwnd = wintypes.HWND(self.winId().__int__())  # Преобразование в HWND
+        enable_dark_mode = ctypes.c_int(1)  # Активируем темный режим
+        
+        # Применяем темный режим, используя DwmSetWindowAttribute
+        dwmapi.DwmSetWindowAttribute(
+            hwnd,
+            ctypes.c_int(DWMWA_USE_IMMERSIVE_DARK_MODE),
+            ctypes.byref(enable_dark_mode),
+            ctypes.sizeof(enable_dark_mode)
+        )
 
+    # def mousePressEvent(self, event: QMouseEvent):
+    #     """Обработчик нажатия кнопки мыши для перемещения окна."""
+    #     if event.button() == Qt.LeftButton:
+    #         self.old_position = event.globalPos()
+
+    # def mouseMoveEvent(self, event: QMouseEvent):
+    #     """Обработчик перемещения мыши для перемещения окна."""
+    #     delta = QPoint(event.globalPos() - self.old_position)
+    #     self.move(self.x() + delta.x(), self.y() + delta.y())
+    #     self.old_position = event.globalPos()
 
     def toggle_proxy(self):
         if not self.proxy_enabled:
@@ -52,7 +101,7 @@ class ProxyApp:
 
     def enable_proxy(self):
         self.proxy_enabled = True
-        self.button.config(text="Отключить прокси")
+        self.button.setText("Отключить прокси")
 
         # Выполнение команды для включения системного прокси
         try:
@@ -77,10 +126,9 @@ class ProxyApp:
         except Exception as e:
             print(f"Ошибка при запуске Xray: {e}")
 
-
     def disable_proxy(self):
         self.proxy_enabled = False
-        self.button.config(text="Включить прокси")
+        self.button.setText("Включить прокси")
 
         # Выполнение команды для отключения системного прокси
         try:
@@ -92,7 +140,6 @@ class ProxyApp:
         # Завершение процесса Xray, если он запущен
         if self.xray_process:
             try:
-                # Завершаем процесс Xray
                 self.xray_process.terminate()  # Отправляет сигнал завершения
                 self.xray_process.wait()  # Ожидание завершения процесса
                 print("Xray процесс завершен.")
@@ -110,13 +157,13 @@ class ProxyApp:
             if output:
                 print(output.strip())  # Выводим в текстовый виджет через перенаправленный stdout
 
-    def on_closing(self):
+    def closeEvent(self, event):
         """Обработчик закрытия приложения."""
         self.disable_proxy()  # Выключаем прокси при закрытии
-        self.root.destroy()    # Закрываем окно
-
+        event.accept()
 
 if __name__ == "__main__":
-    root = tk.Tk()
-    app = ProxyApp(root)
-    root.mainloop()
+    app = QApplication(sys.argv)
+    window = ProxyApp()
+    window.show()
+    sys.exit(app.exec_())
