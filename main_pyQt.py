@@ -3,9 +3,8 @@ import ctypes
 from ctypes import wintypes
 import subprocess
 import threading
-from PyQt5.QtWidgets import QApplication, QWidget, QPushButton, QVBoxLayout, QTextEdit, QMainWindow, QHBoxLayout, QLabel
-from PyQt5.QtCore import Qt, QPoint
-from PyQt5.QtGui import QMouseEvent
+from PyQt5.QtWidgets import QApplication, QWidget, QPushButton, QVBoxLayout, QTextEdit, QMainWindow
+from PyQt5.QtCore import QPoint
 
 
 # Подключение библиотеки dwmapi для работы с атрибутами окна
@@ -81,17 +80,6 @@ class ProxyApp(QMainWindow):
             ctypes.byref(enable_dark_mode),
             ctypes.sizeof(enable_dark_mode)
         )
-
-    # def mousePressEvent(self, event: QMouseEvent):
-    #     """Обработчик нажатия кнопки мыши для перемещения окна."""
-    #     if event.button() == Qt.LeftButton:
-    #         self.old_position = event.globalPos()
-
-    # def mouseMoveEvent(self, event: QMouseEvent):
-    #     """Обработчик перемещения мыши для перемещения окна."""
-    #     delta = QPoint(event.globalPos() - self.old_position)
-    #     self.move(self.x() + delta.x(), self.y() + delta.y())
-    #     self.old_position = event.globalPos()
 
     def toggle_proxy(self):
         if not self.proxy_enabled:
