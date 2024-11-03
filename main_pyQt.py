@@ -1,3 +1,10 @@
+'''
+
+make .exe
+pyinstaller --onefile --windowed .\main_pyQt.py       
+
+'''
+
 import sys
 import ctypes
 from ctypes import wintypes
